@@ -13,6 +13,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { auth } from '../config/firebaseConfig';
+import { scheduleKitReminder } from '../services/notificationService';
 import { addRace } from '../services/raceService';
 
 const DISTANCES = ['5k', '10k', '21k', '42k'];
@@ -106,19 +107,29 @@ export default function AddRaceScreen({ navigation }) {
   const save = async () => {
     if (!validate()) return;
     setSaving(true);
+    const raceToSave = {
+      name: form.name.trim(),
+      distance: form.distance,
+      raceDate: form.startDate.toISOString(),
+      kitPickupStartDate: form.kitPickupStartDate.toISOString(),
+      kitPickupEndDate: form.kitPickupEndDate.toISOString(),
+      kitPickupLocation: form.kitPickupLocation.trim(),
+      registrationPlatform: form.registrationPlatform.trim(),
+      receiptUri: form.receiptUri,
+      status: 'upcoming',
+    };
     try {
-      await addRace(auth.currentUser?.uid, {
-        name: form.name.trim(),
-        distance: form.distance,
-        raceDate: form.startDate.toISOString(),
-        kitPickupStartDate: form.kitPickupStartDate.toISOString(),
-        kitPickupEndDate: form.kitPickupEndDate.toISOString(),
-        kitPickupLocation: form.kitPickupLocation.trim(),
-        registrationPlatform: form.registrationPlatform.trim(),
-        receiptUri: form.receiptUri,
-        status: 'upcoming',
-      });
-      Alert.alert('Sucesso', 'Prova adicionada ao PacePass.', [
+      const savedRace = await addRace(auth.currentUser?.uid, raceToSave);
+      let message = 'Prova adicionada ao PacePass.';
+      try {
+        const reminder = await scheduleKitReminder({ ...raceToSave, id: savedRace.id });
+        if (!reminder.scheduled) {
+          message += ' O lembrete não foi ativado porque a permissão foi recusada.';
+        }
+      } catch (notificationError) {
+        message += ` ${notificationError.message}`;
+      }
+      Alert.alert('Sucesso', message, [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
     } catch (error) {
