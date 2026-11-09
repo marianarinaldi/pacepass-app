@@ -1,8 +1,7 @@
-import { auth, db } from '../config/firebaseConfig';
+import { db } from '../config/firebaseConfig';
 import {
   addDoc,
   collection,
-  deleteDoc,
   doc,
   getDocs,
   orderBy,
@@ -12,117 +11,75 @@ import {
   where,
 } from 'firebase/firestore';
 
-const RACES_COLLECTION = 'races';
+const racesCollection = (userId) => collection(db, 'users', userId, 'races');
+const raceDocument = (userId, raceId) => doc(db, 'users', userId, 'races', raceId);
 
-function currentUserId() {
-  const userId = auth.currentUser?.uid;
-  if (!userId) {
-    throw new Error('É necessário estar autenticado para gerenciar corridas.');
+function assertIdentifier(value, field) {
+  if (typeof value !== 'string' || !value.trim()) {
+    throw new Error(`${field} é obrigatório.`);
   }
-  return userId;
 }
 
-function cleanText(value, field, maxLength = 120) {
-  if (typeof value !== 'string') throw new Error(`${field} inválido.`);
-  const clean = value.trim().replace(/[<>]/g, '');
-  if (!clean || clean.length > maxLength) throw new Error(`${field} inválido.`);
-  return clean;
+function errorMessage(error) {
+  return error instanceof Error ? error.message : 'erro desconhecido';
 }
 
-function validateRace(race) {
-  const name = cleanText(race.name, 'Nome da corrida');
-  const location = cleanText(race.kitPickupLocation, 'Local de retirada');
-  const distance = Number(race.distance);
-  if (!Number.isFinite(distance) || distance <= 0 || distance > 1000) {
-    throw new Error('A distância deve estar entre 0 e 1000 km.');
-  }
-  const startDate = new Date(race.startDate);
-  const pickupStartDate = new Date(race.kitPickupStartDate);
-  const pickupEndDate = new Date(race.kitPickupEndDate);
-  if ([startDate, pickupStartDate, pickupEndDate].some((date) => Number.isNaN(date.getTime()))) {
-    throw new Error('Informe datas válidas.');
-  }
-  if (pickupEndDate < pickupStartDate) {
-    throw new Error('O fim da retirada deve ser posterior ao início.');
-  }
-  return {
-    name,
-    distance,
-    startDate: startDate.toISOString(),
-    kitPickupStartDate: pickupStartDate.toISOString(),
-    kitPickupEndDate: pickupEndDate.toISOString(),
-    kitPickupLocation: location,
-    receiptUri: typeof race.receiptUri === 'string' ? race.receiptUri : null,
-  };
-}
-
-export async function addRace(race) {
+export async function addRace(userId, raceData) {
   try {
-    const userId = currentUserId();
-    const data = validateRace(race);
-    const reference = await addDoc(collection(db, RACES_COLLECTION), {
-      ...data,
-      userId,
-      kitPickedUp: false,
+    assertIdentifier(userId, 'O identificador do utilizador');
+    if (!raceData || typeof raceData !== 'object') {
+      throw new Error('Os dados da corrida são obrigatórios.');
+    }
+
+    const reference = await addDoc(racesCollection(userId), {
+      ...raceData,
       createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
+      isPickedUp: false,
     });
-    return { id: reference.id, ...data, userId, kitPickedUp: false };
+
+    return { id: reference.id, ...raceData, isPickedUp: false };
   } catch (error) {
-    throw new Error(`Não foi possível adicionar a corrida: ${error.message}`);
+    throw new Error(`Não foi possível adicionar a corrida: ${errorMessage(error)}`);
   }
 }
 
-export async function getUpcomingRaces() {
+export async function getUpcomingRaces(userId) {
   try {
-    const userId = currentUserId();
+    assertIdentifier(userId, 'O identificador do utilizador');
     const racesQuery = query(
-      collection(db, RACES_COLLECTION),
-      where('userId', '==', userId),
-      where('startDate', '>=', new Date().toISOString()),
-      orderBy('startDate', 'asc'),
+      racesCollection(userId),
+      where('raceDate', '>=', new Date().toISOString()),
+      orderBy('raceDate', 'asc'),
     );
     const snapshot = await getDocs(racesQuery);
-    return snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+    return snapshot.docs.map((race) => ({ id: race.id, ...race.data() }));
   } catch (error) {
-    throw new Error(`Não foi possível carregar as corridas: ${error.message}`);
+    throw new Error(`Não foi possível carregar as próximas corridas: ${errorMessage(error)}`);
   }
 }
 
-export async function markKitAsPickedUp(raceId) {
+export async function markKitAsPickedUp(userId, raceId) {
   try {
-    const userId = currentUserId();
-    if (typeof raceId !== 'string' || !raceId.trim()) throw new Error('Corrida inválida.');
-    const raceReference = doc(db, RACES_COLLECTION, raceId);
-    await updateDoc(raceReference, {
-      kitPickedUp: true,
-      kitPickedUpAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-      userId,
-    });
-    return { id: raceId, kitPickedUp: true };
+    assertIdentifier(userId, 'O identificador do utilizador');
+    assertIdentifier(raceId, 'O identificador da corrida');
+    await updateDoc(raceDocument(userId, raceId), { isPickedUp: true });
+    return { id: raceId, isPickedUp: true };
   } catch (error) {
-    throw new Error(`Não foi possível atualizar o kit: ${error.message}`);
+    throw new Error(`Não foi possível marcar o kit como retirado: ${errorMessage(error)}`);
   }
 }
 
-export async function updateRace(raceId, race) {
+export async function getRaceHistory(userId) {
   try {
-    const userId = currentUserId();
-    const data = validateRace(race);
-    await updateDoc(doc(db, RACES_COLLECTION, raceId), { ...data, userId, updatedAt: serverTimestamp() });
-    return { id: raceId, ...data, userId };
+    assertIdentifier(userId, 'O identificador do utilizador');
+    const historyQuery = query(
+      racesCollection(userId),
+      where('status', '==', 'completed'),
+      orderBy('raceDate', 'desc'),
+    );
+    const snapshot = await getDocs(historyQuery);
+    return snapshot.docs.map((race) => ({ id: race.id, ...race.data() }));
   } catch (error) {
-    throw new Error(`Não foi possível editar a corrida: ${error.message}`);
-  }
-}
-
-export async function deleteRace(raceId) {
-  try {
-    currentUserId();
-    if (typeof raceId !== 'string' || !raceId.trim()) throw new Error('Corrida inválida.');
-    await deleteDoc(doc(db, RACES_COLLECTION, raceId));
-  } catch (error) {
-    throw new Error(`Não foi possível excluir a corrida: ${error.message}`);
+    throw new Error(`Não foi possível carregar o histórico de corridas: ${errorMessage(error)}`);
   }
 }

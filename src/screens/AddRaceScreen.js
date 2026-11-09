@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
+import { auth } from '../config/firebaseConfig';
 import { addRace } from '../services/raceService';
 
 const initialForm = { name: '', distance: '', startDate: new Date(), kitPickupStartDate: new Date(), kitPickupEndDate: new Date(), kitPickupLocation: '', receiptUri: null };
@@ -24,7 +25,15 @@ export default function AddRaceScreen({ navigation }) {
     setError('');
     if (Object.entries(labels).some(([key, label]) => !String(form[key]).trim())) { setError('Preencha todos os campos obrigatórios.'); return; }
     setSaving(true);
-    try { await addRace(form); Alert.alert('Sucesso', 'Corrida adicionada.'); navigation.goBack(); }
+    try {
+      await addRace(auth.currentUser?.uid, {
+        ...form,
+        raceDate: form.startDate.toISOString(),
+        status: 'upcoming',
+      });
+      Alert.alert('Sucesso', 'Corrida adicionada.');
+      navigation.goBack();
+    }
     catch (saveError) { setError(saveError.message); }
     finally { setSaving(false); }
   };

@@ -11,6 +11,7 @@ export function getRaceDateStatus(startDate, now = new Date()) {
 export default function RaceCard({ race, onPress, onMarkPickedUp }) {
   const start = new Date(race.startDate);
   const dateLabel = Number.isNaN(start.getTime()) ? 'Data inválida' : start.toLocaleDateString('pt-BR');
+  const isPickedUp = race.isPickedUp || race.kitPickedUp;
   return (
     <View style={styles.card}>
       <View style={styles.content}>
@@ -18,13 +19,13 @@ export default function RaceCard({ race, onPress, onMarkPickedUp }) {
         <Text style={styles.details}>{race.distance} km · {dateLabel}</Text>
         <Text style={styles.location}>{race.kitPickupLocation}</Text>
       </View>
-      <StatusBadge pickedUp={race.kitPickedUp} />
+      <StatusBadge pickedUp={isPickedUp} />
       {onPress && (
         <Pressable accessibilityLabel={`Abrir detalhes de ${race.name}`} onPress={() => onPress(race)} style={styles.button}>
           <Text style={styles.detailsButton}>Ver detalhes</Text>
         </Pressable>
       )}
-      {!race.kitPickedUp && onMarkPickedUp && (
+      {!isPickedUp && onMarkPickedUp && (
         <Pressable accessibilityLabel={`Marcar kit de ${race.name} como retirado`} onPress={() => onMarkPickedUp(race.id)} style={styles.pickupButton}>
           <Text style={styles.pickupText}>Marcar retirada</Text>
         </Pressable>
