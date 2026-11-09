@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 export default function StatusBadge({ pickedUp }) {
   return (
     <View style={[styles.badge, pickedUp ? styles.done : styles.pending]}>
-      <Text style={styles.text}>{pickedUp ? 'Retirado' : 'Pendente'}</Text>
+      <Text style={styles.text}>{pickedUp ? 'Kit Retirado' : 'Kit Pendente'}</Text>
     </View>
   );
 }
