@@ -11,7 +11,9 @@ function getDate(value, field) {
 async function getWritableCalendar() {
   if (Calendar.getDefaultCalendarAsync) {
     const defaultCalendar = await Calendar.getDefaultCalendarAsync();
-    if (defaultCalendar?.allowsModifications !== false) return defaultCalendar;
+    if (defaultCalendar && defaultCalendar.allowsModifications !== false) {
+      return defaultCalendar;
+    }
   }
 
   const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
