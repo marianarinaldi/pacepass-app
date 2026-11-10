@@ -1,6 +1,8 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import StatusBadge from './StatusBadge';
+import theme from '../styles/theme';
 
 export function getRaceDateStatus(startDate, now = new Date()) {
   const date = new Date(startDate);
@@ -24,8 +26,8 @@ function formatStartDate(dateValue) {
 }
 
 function formatDistance(distance) {
-  if (typeof distance === 'string' && distance.toLowerCase().endsWith('k')) return distance;
-  return `${distance} km`;
+  if (typeof distance === 'string' && distance.toLowerCase().endsWith('k')) return distance.toUpperCase();
+  return `${distance} KM`;
 }
 
 export default function RaceCard({ race, onPress, onMarkPickedUp, now = new Date() }) {
@@ -50,22 +52,30 @@ export default function RaceCard({ race, onPress, onMarkPickedUp, now = new Date
       <View style={styles.header}>
         <View style={styles.content}>
           <Text style={styles.name}>{race.name}</Text>
-          <Text style={styles.details}>
-            {formatDistance(race.distance)} · {formatStartDate(startDate)}
-          </Text>
-          {!!race.kitPickupLocation && <Text style={styles.location}>{race.kitPickupLocation}</Text>}
+          <View style={styles.metaRow}>
+            <Feather color={theme.colors.textMuted} name="calendar" size={15} />
+            <Text style={styles.details}>{`${String(race.distance).toLowerCase()} · ${formatStartDate(startDate)}`}</Text>
+          </View>
         </View>
-        <StatusBadge pickedUp={isPickedUp} />
+        <View style={styles.distancePill}><Text style={styles.distanceText}>{formatDistance(race.distance)}</Text></View>
       </View>
 
-      <Text accessibilityLabel={`Contagem regressiva para ${race.name}`} style={styles.countdown}>
-        {countdown}
-      </Text>
+      <View style={styles.infoRow}>
+        <Text accessibilityLabel={`Contagem regressiva para ${race.name}`} style={styles.countdown}>{countdown}</Text>
+        <StatusBadge pickedUp={isPickedUp} />
+      </View>
+      {!!race.kitPickupLocation && (
+        <View style={styles.locationRow}>
+          <Feather color={theme.colors.textMuted} name="map-pin" size={15} />
+          <Text style={styles.location}>{race.kitPickupLocation}</Text>
+        </View>
+      )}
 
       <View style={styles.actions}>
         {onPress && (
           <Pressable
             accessibilityLabel={`Abrir detalhes de ${race.name}`}
+            accessibilityRole="button"
             onPress={() => onPress(race)}
             style={styles.detailsButton}
           >
@@ -79,6 +89,7 @@ export default function RaceCard({ race, onPress, onMarkPickedUp, now = new Date
             onPress={handlePickup}
             style={styles.pickupButton}
           >
+            <Feather color={theme.colors.white} name="check-circle" size={17} />
             <Text style={styles.pickupText}>Marcar Kit como Retirado</Text>
           </Pressable>
         )}
@@ -88,25 +99,21 @@ export default function RaceCard({ race, onPress, onMarkPickedUp, now = new Date
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: '#FFF',
-    borderRadius: 14,
-    elevation: 3,
-    marginBottom: 14,
-    padding: 16,
-    shadowColor: '#0F172A',
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-  },
-  header: { alignItems: 'flex-start', flexDirection: 'row', gap: 12 },
+  card: { ...theme.shadows.card, backgroundColor: theme.colors.surface, borderColor: theme.colors.border, borderRadius: theme.radii.lg, borderWidth: 1, marginBottom: theme.spacing.md, padding: theme.spacing.md },
+  header: { alignItems: 'flex-start', flexDirection: 'row', gap: theme.spacing.sm },
   content: { flex: 1 },
-  name: { color: '#0F172A', fontSize: 18, fontWeight: '800' },
-  details: { color: '#334155', fontSize: 15, marginTop: 7 },
-  location: { color: '#475569', marginTop: 5 },
-  countdown: { color: '#1D4ED8', fontSize: 15, fontWeight: '800', marginTop: 14 },
-  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 14 },
-  detailsButton: { borderColor: '#2563EB', borderRadius: 8, borderWidth: 1, padding: 10 },
-  detailsButtonText: { color: '#1D4ED8', fontWeight: '700' },
-  pickupButton: { backgroundColor: '#1D4ED8', borderRadius: 8, flex: 1, minWidth: 180, padding: 11 },
-  pickupText: { color: '#FFF', fontWeight: '800', textAlign: 'center' },
+  name: { color: theme.colors.text, ...theme.typography.h3 },
+  metaRow: { alignItems: 'center', flexDirection: 'row', gap: 6, marginTop: 8 },
+  details: { color: theme.colors.textMuted, ...theme.typography.caption },
+  distancePill: { backgroundColor: theme.colors.background, borderRadius: theme.radii.pill, paddingHorizontal: 12, paddingVertical: 7 },
+  distanceText: { color: theme.colors.text, fontSize: 12, fontWeight: '800' },
+  infoRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginTop: theme.spacing.md },
+  countdown: { color: theme.colors.primaryDark, fontSize: 15, fontWeight: '800' },
+  locationRow: { alignItems: 'center', flexDirection: 'row', gap: 6, marginTop: 10 },
+  location: { color: theme.colors.textMuted, ...theme.typography.caption },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: theme.spacing.md },
+  detailsButton: { borderColor: theme.colors.border, borderRadius: theme.radii.sm, borderWidth: 1, padding: 11 },
+  detailsButtonText: { color: theme.colors.primaryDark, fontWeight: '700' },
+  pickupButton: { alignItems: 'center', backgroundColor: theme.colors.primary, borderRadius: theme.radii.sm, flex: 1, flexDirection: 'row', gap: 7, justifyContent: 'center', minWidth: 190, padding: 11 },
+  pickupText: { color: theme.colors.white, fontWeight: '800' },
 });
