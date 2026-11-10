@@ -1,6 +1,9 @@
 jest.mock('@expo/vector-icons', () => ({
   Ionicons: () => null,
 }));
+jest.mock('../context/AuthContext', () => ({
+  useAuth: () => ({ authLoading: false, user: { uid: 'user-1' } }),
+}));
 
 jest.mock('../screens/UpcomingRacesScreen', () => () => null);
 jest.mock('../screens/CalendarScreen', () => () => null);
