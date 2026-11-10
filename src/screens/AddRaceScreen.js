@@ -3,6 +3,7 @@ import {
   Alert,
   Image,
   Pressable,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -65,13 +66,34 @@ export default function AddRaceScreen({ navigation }) {
     return Object.keys(nextErrors).length === 0;
   };
 
-  const openPicker = (field, mode) => setPicker({ field, mode });
+  const openPicker = (field, mode, step = mode) => setPicker({ field, mode, step });
 
-  const handlePickerChange = (_, selectedDate) => {
+  const handlePickerValueChange = (_, selectedDate) => {
     const currentPicker = picker;
+    if (!selectedDate || !currentPicker) return;
+
+    if (currentPicker.step === 'date' && currentPicker.field === 'startDate') {
+      if (Platform.OS === 'android') {
+        update('startDate', selectedDate);
+        setPicker({ field: 'startDate', mode: 'time', step: 'time' });
+        return;
+      }
+    }
+
+    if (currentPicker.step === 'time' && currentPicker.field === 'startDate') {
+      const baseDate = form.startDate || new Date();
+      const combinedDate = new Date(baseDate);
+      combinedDate.setHours(selectedDate.getHours(), selectedDate.getMinutes(), 0, 0);
+      update('startDate', combinedDate);
+      setPicker(null);
+      return;
+    }
+
+    update(currentPicker.field, selectedDate);
     setPicker(null);
-    if (selectedDate && currentPicker) update(currentPicker.field, selectedDate);
   };
+
+  const dismissPicker = () => setPicker(null);
 
   const selectReceipt = () => {
     Alert.alert('Comprovativo de inscrição', 'Escolha uma opção', [
@@ -186,7 +208,11 @@ export default function AddRaceScreen({ navigation }) {
           accessibilityLabel="Data e hora da largada"
           error={errors.startDate}
           label="Data/hora da largada *"
-          onPress={() => openPicker('startDate', 'datetime')}
+          onPress={() => openPicker(
+            'startDate',
+            Platform.OS === 'android' ? 'date' : 'datetime',
+            'date',
+          )}
           value={formatDate(form.startDate)}
         />
         <DateField
@@ -207,7 +233,8 @@ export default function AddRaceScreen({ navigation }) {
         {picker && (
           <DateTimePicker
             mode={picker.mode}
-            onChange={handlePickerChange}
+            onDismiss={dismissPicker}
+            onValueChange={handlePickerValueChange}
             value={form[picker.field] || new Date()}
           />
         )}
