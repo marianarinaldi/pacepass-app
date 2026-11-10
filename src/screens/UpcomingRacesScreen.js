@@ -1,11 +1,13 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, FlatList, Pressable, StyleSheet, Text, View, ActivityIndicator } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Loading from '../components/Loading';
 import RaceCard, { getDaysUntil } from '../components/RaceCard';
 import { auth } from '../config/firebaseConfig';
 import { getUpcomingRaces, markKitAsPickedUp } from '../services/raceService';
+import theme from '../styles/theme';
 
 export function isKitPickupAlert(race, now = new Date()) {
   if (race.isPickedUp || race.kitPickedUp) return false;
@@ -34,16 +36,13 @@ export default function UpcomingRacesScreen({ navigation }) {
   }, []);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
-
   const alertRace = useMemo(() => races.find((race) => isKitPickupAlert(race)), [races]);
 
   const pickup = async (raceId) => {
     setUpdatingId(raceId);
     try {
       await markKitAsPickedUp(auth.currentUser?.uid, raceId);
-      setRaces((items) => items.map((item) => (
-        item.id === raceId ? { ...item, isPickedUp: true, kitPickedUp: true } : item
-      )));
+      setRaces((items) => items.map((item) => item.id === raceId ? { ...item, isPickedUp: true, kitPickedUp: true } : item));
     } catch (pickupError) {
       Alert.alert('Não foi possível atualizar', pickupError.message);
     } finally {
@@ -56,28 +55,37 @@ export default function UpcomingRacesScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <Text accessibilityRole="header" style={styles.title}>Próximas corridas</Text>
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.eyebrow}>BOM TREINO, CORREDOR</Text>
+            <Text accessibilityRole="header" style={styles.title}>Suas próximas provas</Text>
+          </View>
+          <View accessibilityLabel="Perfil do corredor" style={styles.avatar}><Feather color={theme.colors.primaryDark} name="user" size={22} /></View>
+        </View>
+        <Text style={styles.total}>{races.length} {races.length === 1 ? 'prova inscrita' : 'provas inscritas'}</Text>
+
         {!!alertRace && (
           <View accessibilityLiveRegion="polite" style={styles.alert}>
-            <Text style={styles.alertTitle}>Atenção: retirada de kit próxima</Text>
-            <Text style={styles.alertText}>
-              Retire o kit de {alertRace.name} nos próximos dias.
-            </Text>
+            <View style={styles.alertIcon}><Feather color={theme.colors.accent} name="package" size={20} /></View>
+            <View style={styles.alertContent}>
+              <Text style={styles.alertTitle}>Atenção ao kit</Text>
+              <Text style={styles.alertText}>Retirada de {alertRace.name} em breve.</Text>
+              <Text style={styles.alertDeadline}>{alertRace.kitPickupLocation || 'Local informado na prova'}</Text>
+            </View>
           </View>
         )}
         {!!error && (
           <View style={styles.errorBox}>
             <Text style={styles.error}>{error}</Text>
-            <Pressable accessibilityLabel="Tentar carregar corridas novamente" onPress={load}>
-              <Text style={styles.retry}>Tentar novamente</Text>
-            </Pressable>
+            <Pressable accessibilityLabel="Tentar carregar corridas novamente" onPress={load}><Text style={styles.retry}>Tentar novamente</Text></Pressable>
           </View>
         )}
         <FlatList
-          contentContainerStyle={races.length === 0 ? styles.emptyList : undefined}
+          contentContainerStyle={races.length === 0 ? styles.emptyList : styles.list}
           data={races}
           keyExtractor={(item) => item.id}
-          ListEmptyComponent={<Text style={styles.empty}>Nenhuma corrida cadastrada</Text>}
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
+          ListEmptyComponent={<EmptyState />}
           renderItem={({ item }) => (
             <View>
               <RaceCard
@@ -86,31 +94,54 @@ export default function UpcomingRacesScreen({ navigation }) {
                 onPress={(race) => navigation.navigate('RaceDetail', { race })}
                 race={item}
               />
-              {updatingId === item.id && <ActivityIndicator accessibilityLabel="Atualizando kit" color="#1D4ED8" style={styles.updating} />}
+              {updatingId === item.id && <ActivityIndicator accessibilityLabel="Atualizando kit" color={theme.colors.primary} style={styles.updating} />}
             </View>
           )}
         />
         <Pressable accessibilityLabel="Adicionar corrida" onPress={() => navigation.navigate('AddRace')} style={styles.add}>
-          <Text style={styles.addText}>+ Adicionar corrida</Text>
+          <Feather color={theme.colors.white} name="plus" size={19} />
+          <Text style={styles.addText}>Adicionar prova</Text>
         </Pressable>
       </View>
     </SafeAreaView>
   );
 }
 
+function EmptyState() {
+  return (
+    <View style={styles.emptyState}>
+      <View style={styles.emptyIcon}><Feather color={theme.colors.primary} name="flag" size={34} /></View>
+      <Text style={styles.emptyTitle}>Tudo pronto para sua próxima largada?</Text>
+      <Text style={styles.emptyText}>Cadastre uma prova e acompanhe cada etapa da sua corrida.</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  safeArea: { backgroundColor: '#F8FAFC', flex: 1 },
-  container: { flex: 1, padding: 20 },
-  title: { color: '#0F172A', fontSize: 28, fontWeight: '800', marginBottom: 16 },
-  alert: { backgroundColor: '#FFFBEB', borderColor: '#F59E0B', borderRadius: 12, borderWidth: 1, marginBottom: 16, padding: 14 },
-  alertTitle: { color: '#92400E', fontSize: 16, fontWeight: '800' },
-  alertText: { color: '#78350F', marginTop: 5 },
-  errorBox: { backgroundColor: '#FEF2F2', borderRadius: 8, marginBottom: 12, padding: 12 },
+  safeArea: { backgroundColor: theme.colors.background, flex: 1 },
+  container: { flex: 1, paddingHorizontal: theme.spacing.lg },
+  header: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', paddingTop: theme.spacing.md },
+  eyebrow: { color: theme.colors.primaryDark, fontSize: 11, fontWeight: '800', letterSpacing: 1 },
+  title: { color: theme.colors.text, ...theme.typography.h1, marginTop: 4 },
+  avatar: { alignItems: 'center', backgroundColor: theme.colors.primarySoft, borderRadius: theme.radii.pill, height: 46, justifyContent: 'center', width: 46 },
+  total: { color: theme.colors.textMuted, ...theme.typography.body, marginBottom: theme.spacing.md, marginTop: 4 },
+  alert: { backgroundColor: theme.colors.accentSoft, borderColor: '#FCD34D', borderRadius: theme.radii.md, borderWidth: 1, flexDirection: 'row', gap: 12, marginBottom: theme.spacing.md, padding: theme.spacing.md },
+  alertIcon: { alignItems: 'center', backgroundColor: '#FEF3C7', borderRadius: theme.radii.sm, height: 38, justifyContent: 'center', width: 38 },
+  alertContent: { flex: 1 },
+  alertTitle: { color: '#92400E', ...theme.typography.h3 },
+  alertText: { color: '#78350F', marginTop: 3 },
+  alertDeadline: { color: '#92400E', fontSize: 13, fontWeight: '700', marginTop: 5 },
+  errorBox: { backgroundColor: '#FEF2F2', borderRadius: theme.radii.sm, marginBottom: theme.spacing.md, padding: 12 },
   error: { color: '#991B1B' },
-  retry: { color: '#1D4ED8', fontWeight: '700', marginTop: 8 },
+  retry: { color: theme.colors.primaryDark, fontWeight: '700', marginTop: 8 },
+  list: { paddingBottom: theme.spacing.md },
+  separator: { height: 0 },
   emptyList: { flexGrow: 1, justifyContent: 'center' },
-  empty: { color: '#475569', fontSize: 16, textAlign: 'center' },
-  updating: { marginTop: -8, marginBottom: 8 },
-  add: { alignItems: 'center', backgroundColor: '#1D4ED8', borderRadius: 9, padding: 15 },
-  addText: { color: '#FFF', fontWeight: '800' },
+  emptyState: { alignItems: 'center', paddingHorizontal: theme.spacing.md },
+  emptyIcon: { alignItems: 'center', backgroundColor: theme.colors.primarySoft, borderRadius: 40, height: 72, justifyContent: 'center', marginBottom: theme.spacing.md, width: 72 },
+  emptyTitle: { color: theme.colors.text, fontSize: 18, fontWeight: '800', textAlign: 'center' },
+  emptyText: { color: theme.colors.textMuted, lineHeight: 22, marginTop: 8, textAlign: 'center' },
+  updating: { marginBottom: 8, marginTop: -8 },
+  add: { alignItems: 'center', backgroundColor: theme.colors.primary, borderRadius: theme.radii.sm, flexDirection: 'row', gap: 8, justifyContent: 'center', marginBottom: theme.spacing.sm, padding: 15 },
+  addText: { color: theme.colors.white, fontWeight: '800' },
 });

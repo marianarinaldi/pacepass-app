@@ -12,10 +12,12 @@ import {
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
+import { Feather } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { auth } from '../config/firebaseConfig';
 import { scheduleKitReminder } from '../services/notificationService';
 import { addRace } from '../services/raceService';
+import theme from '../styles/theme';
 
 const DISTANCES = ['5k', '10k', '21k', '42k'];
 const initialForm = {
@@ -169,7 +171,9 @@ export default function AddRaceScreen({ navigation }) {
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <Text accessibilityRole="header" style={styles.title}>Nova prova</Text>
+        <Text style={styles.intro}>Registre sua próxima conquista.</Text>
 
+        <SectionTitle icon="flag" title="Dados da prova" />
         <View style={styles.field}>
           <Text style={styles.label}>Nome da prova *</Text>
           <TextInput
@@ -214,13 +218,16 @@ export default function AddRaceScreen({ navigation }) {
             'date',
           )}
           value={formatDate(form.startDate)}
+          icon="clock"
         />
+        <SectionTitle icon="package" title="Janela do kit" />
         <DateField
           accessibilityLabel="Início da retirada do kit"
           error={errors.kitPickupStartDate}
           label="Início da retirada do kit *"
           onPress={() => openPicker('kitPickupStartDate', 'date')}
           value={formatDate(form.kitPickupStartDate)}
+          icon="calendar"
         />
         <DateField
           accessibilityLabel="Fim da retirada do kit"
@@ -228,6 +235,7 @@ export default function AddRaceScreen({ navigation }) {
           label="Fim da retirada do kit *"
           onPress={() => openPicker('kitPickupEndDate', 'date')}
           value={formatDate(form.kitPickupEndDate)}
+          icon="calendar"
         />
 
         {picker && (
@@ -246,6 +254,7 @@ export default function AddRaceScreen({ navigation }) {
           placeholder="Ex.: Shopping principal"
           value={form.kitPickupLocation}
           error={errors.kitPickupLocation}
+          icon="map-pin"
         />
         <TextField
           field="registrationPlatform"
@@ -254,12 +263,34 @@ export default function AddRaceScreen({ navigation }) {
           placeholder="Ex.: Ticket Sports"
           value={form.registrationPlatform}
           error={errors.registrationPlatform}
+          icon="link"
         />
 
-        <Pressable accessibilityLabel="Adicionar comprovativo de inscrição" onPress={selectReceipt} style={styles.secondaryButton}>
-          <Text style={styles.secondaryButtonText}>Adicionar comprovativo</Text>
-        </Pressable>
-        {form.receiptUri && <Image accessibilityLabel="Pré-visualização do comprovativo" source={{ uri: form.receiptUri }} style={styles.preview} />}
+        <SectionTitle icon="image" title="Comprovante" />
+        {form.receiptUri ? (
+          <View style={styles.previewWrap}>
+            <Image accessibilityLabel="Pré-visualização do comprovativo" source={{ uri: form.receiptUri }} style={styles.preview} />
+            <View style={styles.previewActions}>
+              <Text style={styles.previewLabel}>Comprovante anexado</Text>
+              <View style={styles.previewButtons}>
+                <Pressable accessibilityLabel="Trocar comprovativo" onPress={selectReceipt} style={styles.smallButton}>
+                  <Feather color={theme.colors.primaryDark} name="refresh-cw" size={15} />
+                  <Text style={styles.smallButtonText}>Trocar</Text>
+                </Pressable>
+                <Pressable accessibilityLabel="Remover comprovativo" onPress={() => update('receiptUri', null)} style={styles.removeButton}>
+                  <Feather color={theme.colors.danger} name="trash-2" size={15} />
+                  <Text style={styles.removeText}>Remover</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        ) : (
+          <Pressable accessibilityLabel="Adicionar comprovativo de inscrição" onPress={selectReceipt} style={styles.dropzone}>
+            <View style={styles.uploadIcon}><Feather color={theme.colors.primary} name="upload-cloud" size={24} /></View>
+            <Text style={styles.dropzoneTitle}>Adicione seu comprovante</Text>
+            <Text style={styles.dropzoneText}>Tire uma foto ou escolha da galeria</Text>
+          </Pressable>
+        )}
 
         {!!errors.form && <Text accessibilityLiveRegion="polite" style={styles.error}>{errors.form}</Text>}
         <Pressable accessibilityLabel="Salvar prova" disabled={saving} onPress={save} style={[styles.saveButton, saving && styles.disabledButton]}>
@@ -270,11 +301,16 @@ export default function AddRaceScreen({ navigation }) {
   );
 }
 
-function DateField({ accessibilityLabel, error, label, onPress, value }) {
+function SectionTitle({ icon, title }) {
+  return <View style={styles.sectionTitle}><Feather color={theme.colors.primaryDark} name={icon} size={17} /><Text style={styles.sectionText}>{title}</Text></View>;
+}
+
+function DateField({ accessibilityLabel, error, icon, label, onPress, value }) {
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
       <Pressable accessibilityLabel={accessibilityLabel} onPress={onPress} style={styles.dateButton}>
+        <Feather color={theme.colors.textMuted} name={icon} size={17} />
         <Text style={value.startsWith('Selecionar') ? styles.placeholder : styles.dateText}>{value}</Text>
       </Pressable>
       {!!error && <Text accessibilityLiveRegion="polite" style={styles.error}>{error}</Text>}
@@ -282,42 +318,59 @@ function DateField({ accessibilityLabel, error, label, onPress, value }) {
   );
 }
 
-function TextField({ error, field, label, onChange, placeholder, value }) {
+function TextField({ error, field, icon, label, onChange, placeholder, value }) {
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
-      <TextInput
-        accessibilityLabel={label.replace(' *', '')}
-        onChangeText={(text) => onChange(field, text)}
-        placeholder={placeholder}
-        style={styles.input}
-        value={value}
-      />
+      <View style={styles.inputWrap}>
+        <Feather color={theme.colors.textMuted} name={icon} size={17} />
+        <TextInput
+          accessibilityLabel={label.replace(' *', '')}
+          onChangeText={(text) => onChange(field, text)}
+          placeholder={placeholder}
+          style={styles.input}
+          value={value}
+        />
+      </View>
       {!!error && <Text accessibilityLiveRegion="polite" style={styles.error}>{error}</Text>}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { backgroundColor: '#F8FAFC', flex: 1 },
-  container: { padding: 20 },
-  title: { color: '#111827', fontSize: 28, fontWeight: '700', marginBottom: 22 },
-  field: { marginBottom: 16 },
-  label: { color: '#1F2937', fontSize: 15, fontWeight: '600', marginBottom: 7 },
-  input: { backgroundColor: '#FFF', borderColor: '#CBD5E1', borderRadius: 8, borderWidth: 1, padding: 13 },
+  safeArea: { backgroundColor: theme.colors.background, flex: 1 },
+  container: { padding: theme.spacing.lg },
+  title: { color: theme.colors.text, ...theme.typography.h1 },
+  intro: { color: theme.colors.textMuted, marginBottom: theme.spacing.lg, marginTop: 5 },
+  sectionTitle: { alignItems: 'center', flexDirection: 'row', gap: 8, marginBottom: theme.spacing.md, marginTop: theme.spacing.sm },
+  sectionText: { color: theme.colors.text, ...theme.typography.h3 },
+  field: { marginBottom: theme.spacing.md },
+  label: { color: theme.colors.text, ...theme.typography.caption, ...theme.typography.bold, marginBottom: 7 },
+  inputWrap: { alignItems: 'center', backgroundColor: theme.colors.surface, borderColor: theme.colors.border, borderRadius: theme.radii.sm, borderWidth: 1, flexDirection: 'row', gap: 10, paddingHorizontal: 13 },
+  input: { flex: 1, paddingVertical: 13 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { borderColor: '#2563EB', borderRadius: 18, borderWidth: 1, paddingHorizontal: 18, paddingVertical: 10 },
-  selectedChip: { backgroundColor: '#2563EB' },
-  chipText: { color: '#1D4ED8', fontWeight: '700' },
-  selectedChipText: { color: '#FFF' },
-  dateButton: { backgroundColor: '#FFF', borderColor: '#CBD5E1', borderRadius: 8, borderWidth: 1, padding: 13 },
-  dateText: { color: '#111827' },
-  placeholder: { color: '#64748B' },
-  error: { color: '#B91C1C', fontSize: 13, marginTop: 5 },
-  secondaryButton: { alignItems: 'center', borderColor: '#2563EB', borderRadius: 8, borderWidth: 1, marginBottom: 12, padding: 13 },
-  secondaryButtonText: { color: '#1D4ED8', fontWeight: '700' },
-  preview: { borderRadius: 8, height: 160, marginBottom: 12, width: '100%' },
-  saveButton: { alignItems: 'center', backgroundColor: '#2563EB', borderRadius: 8, padding: 15 },
+  chip: { borderColor: theme.colors.border, borderRadius: theme.radii.pill, borderWidth: 1, paddingHorizontal: 18, paddingVertical: 10 },
+  selectedChip: { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary },
+  chipText: { color: theme.colors.textMuted, fontWeight: '700' },
+  selectedChipText: { color: theme.colors.white },
+  dateButton: { alignItems: 'center', backgroundColor: theme.colors.surface, borderColor: theme.colors.border, borderRadius: theme.radii.sm, borderWidth: 1, flexDirection: 'row', gap: 10, padding: 13 },
+  dateText: { color: theme.colors.text },
+  placeholder: { color: theme.colors.textMuted },
+  error: { color: theme.colors.danger, fontSize: 13, marginTop: 5 },
+  dropzone: { alignItems: 'center', backgroundColor: theme.colors.surface, borderColor: theme.colors.primary, borderRadius: theme.radii.md, borderStyle: 'dashed', borderWidth: 1.5, marginBottom: theme.spacing.md, padding: theme.spacing.lg },
+  uploadIcon: { alignItems: 'center', backgroundColor: theme.colors.primarySoft, borderRadius: theme.radii.pill, height: 48, justifyContent: 'center', marginBottom: 8, width: 48 },
+  dropzoneTitle: { color: theme.colors.text, fontWeight: '800' },
+  dropzoneText: { color: theme.colors.textMuted, fontSize: 13, marginTop: 4 },
+  previewWrap: { backgroundColor: theme.colors.surface, borderRadius: theme.radii.md, marginBottom: theme.spacing.md, overflow: 'hidden' },
+  preview: { height: 180, width: '100%' },
+  previewActions: { padding: 12 },
+  previewLabel: { color: theme.colors.text, fontWeight: '700' },
+  previewButtons: { flexDirection: 'row', gap: 10, marginTop: 10 },
+  smallButton: { alignItems: 'center', borderColor: theme.colors.border, borderRadius: theme.radii.sm, borderWidth: 1, flexDirection: 'row', gap: 5, padding: 8 },
+  smallButtonText: { color: theme.colors.primaryDark, fontWeight: '700' },
+  removeButton: { alignItems: 'center', borderColor: '#FECACA', borderRadius: theme.radii.sm, borderWidth: 1, flexDirection: 'row', gap: 5, padding: 8 },
+  removeText: { color: theme.colors.danger, fontWeight: '700' },
+  saveButton: { alignItems: 'center', backgroundColor: theme.colors.primary, borderRadius: theme.radii.sm, padding: 15 },
   disabledButton: { opacity: 0.6 },
-  saveText: { color: '#FFF', fontWeight: '700' },
+  saveText: { color: theme.colors.white, fontWeight: '800' },
 });
